@@ -126,47 +126,6 @@ def create_map(filtered_df):
     
     return map_china
 
-
-
-# def create_map() :
-#     # Warna kualitas udara untuk setiap stasiun
-#     color_changping = "yellow"
-#     color_dingling = "yellow"
-
-#     # Koordinat stasiun
-#     stations = [
-#         {"name": "Aotizhingxin", "lat": 39.9996, "lon": 116.4187, "color": color_dingling},
-#         {"name": "Changping", "lat": 40.2203, "lon": 116.2319, "color": color_changping},
-#         {"name": "Dingling", "lat": 39.9391, "lon": 116.2883, "color": color_dingling},
-#         {"name": "Dongsi", "lat": 39.9335, "lon": 116.4206, "color": color_dingling},
-#         {"name": "Guanyuan", "lat": 39.9515, "lon": 116.3198, "color": color_dingling},
-#         {"name": "Gucheng", "lat": 39.9167, "lon": 116.2627, "color": color_dingling},
-#         {"name": "Huairou", "lat": 40.3125, "lon": 116.6347, "color": color_dingling},
-#         {"name": "Nongzhanguan", "lat": 39.9934, "lon": 116.3493, "color": color_dingling},
-#         {"name": "Shunyi", "lat": 40.1305, "lon": 116.6530, "color": color_dingling},
-#         {"name": "Tiantan", "lat": 39.8825, "lon": 116.4179, "color": color_dingling},
-#         {"name": "Wanliu", "lat": 39.9575, "lon": 116.3190, "color": color_dingling},
-#         {"name": "Wanshouxigong", "lat": 39.8887, "lon": 116.3066, "color": color_dingling}
-#     ]
-
-#     # Buat peta dengan pusat di China
-#     map_china = folium.Map(location=[40.1, 116.5], zoom_start=10)
-
-#     # Tambahkan marker untuk setiap stasiun
-#     for station in stations:
-#         folium.CircleMarker(
-#             location=[station["lat"], station["lon"]],
-#             radius=20,
-#             color=station["color"],
-#             fill=True,
-#             fill_color=station["color"],
-#             fill_opacity=0.7,
-#             popup=f"{station['name']} (PM2.5: {station['color'].capitalize()})",
-#         ).add_to(map_china)
-
-#     # Tampilkan peta
-#     return map_china
-
 @st.cache_data
 def ratu1(df_filtered):
     # komponen polutan
