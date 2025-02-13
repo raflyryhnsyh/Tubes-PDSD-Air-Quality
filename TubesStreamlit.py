@@ -51,31 +51,54 @@ def ratu1(df_filtered):
     # komponen polutan
     polutan = ['PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
 
-    # menghitung rata rata polutan per jam
-    df_filtered.loc[:, 'polutan_average'] = df_filtered[polutan].mean(axis=1)
+    # menghitung rata rata polutan per hari untuk setiap tahun dan setiap stasiun
+    df_daily = df_filtered.groupby(["station", "year", "month", "day"])[polutan].mean().reset_index()
 
-    pivot_q1 = df_filtered.pivot_table(
-        index='station',
-        columns='year',
-        values='polutan_average',
-        aggfunc='mean'
-    )
+    # menghitung total rata-rata polutan per hari
+    df_daily["polutan_average"] = df_daily[polutan].mean(axis=1)
+
+    # batas maksimum sudah di tentukan di awal analisis
+    threshold = 38.67
+
+    # menentukan stasiun yang menghadapi masalah polusi dimana rata-rata polutan > batas maksimum
+    df_polluted_stations = df_daily[df_daily["polutan_average"] > threshold]
+
+    # menampilkan stasiun yang memiliki masalah polusi beserta jumlah harinya
+    df_polluted_summary = df_polluted_stations.groupby("station")["day"].count().reset_index()
+    df_polluted_summary.columns = ["station", "jumlah_hari_terpolusi"]
     
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(data=pivot_q1, cmap="crest", annot=True, fmt=".1f", linewidth=.8)
-    plt.title('Rata-Rata Konsentrasi Polutan Per Tahun')
+    df_polluted_summary = df_polluted_summary.sort_values(by="jumlah_hari_terpolusi", ascending=False)
+
+    plt.figure(figsize=(12, 6))
+    sns.barplot(
+        data=df_polluted_summary,
+        x="station",
+        y="jumlah_hari_terpolusi",
+        hue="station",
+        palette="dark:skyblue"
+    )
+
+    plt.ylim(0, df_polluted_summary["jumlah_hari_terpolusi"].max() + 200)
+
+    plt.xlabel("Stasiun")
+    plt.ylabel("Jumlah Hari Terpolusi")
+    plt.title("Jumlah Hari dengan Polusi Tinggi per Stasiun")
+    plt.xticks(rotation=45)
     st.pyplot(plt.gcf())
 
-    # unpivot data
-    q1_melt = pivot_q1.reset_index().melt(id_vars='station', var_name='year', value_name='polutan_average')
+    df_heatmap = df_polluted_stations.pivot_table(
+        index="station",
+        columns="day",
+        values="polutan_average",
+        aggfunc="mean"
+    )
 
-    # visualisasi
-    plt.figure(figsize=(25, 10))
-    sns.barplot(data=q1_melt, x="year", y="polutan_average", hue="station", palette="coolwarm")
-    plt.title("Rata-rata Polutan per Station dan Tahun")
-    plt.xlabel("Tahun")
-    plt.ylabel("Rata-rata Polutan")
-    plt.legend(title="Station", loc="best")
+    plt.figure(figsize=(14, 6))
+    sns.heatmap(df_heatmap, cmap='Blues', linewidths=0.5)
+
+    plt.xlabel("Hari dalam Sebulan")
+    plt.ylabel("Stasiun")
+    plt.title("Distribusi Polusi di Setiap Stasiun")
     st.pyplot(plt.gcf())
 
     # Penjelasan
@@ -83,56 +106,53 @@ def ratu1(df_filtered):
         st.write("""Insight : """)
         st.write(
             """
-            >Berdasarkan grafik di atas, beberapa stasiun, seperti Huairou dan Dingling, menunjukkan `penurunan` tingkat polusi dari tahun ke tahun. Hal ini mungkin menunjukkan adanya perbaikan kualitas udara, yang bisa disebabkan oleh tindakan seperti peraturan lingkungan yang lebih ketat, penggunaan teknologi yang lebih ramah lingkungan, atau perubahan musiman. Di sisi lain, beberapa stasiun, seperti Nongzhuang dan Shunyi, menunjukkan tingkat polusi yang `stabil` setiap tahun, yang bisa menandakan adanya sumber polusi yang terus-menerus, seperti lalu lintas atau industri yang tidak berubah.
+            >Visualisasi "Jumlah Hari dengan Polusi Tinggi per Stasiun" menampilkan jumlah hari dengan tingkat polusi tinggi untuk setiap stasiun. Dari grafik ini, terlihat bahwa `hampir semua stasiun` memiliki jumlah hari dengan tingkat `polusi yang tinggi` secara konsisten, dengan perbedaan yang tidak terlalu signifikan di antara mereka. Stasiun seperti `Aotizhongxin, Dongsi, dan Gucheng` termasuk dalam kategori dengan `jumlah hari terbanyak` mengalami `polusi tinggi`, menandakan bahwa daerah ini memiliki `kualitas udara` yang `lebih buruk` dibandingkan stasiun lainnya.
 
-            >Ada juga stasiun, seperti Wanshouxigong, yang mengalami `lonjakan polusi` pada tahun tertentu, misalnya pada tahun 2014. Ini bisa jadi dipengaruhi oleh kejadian khusus atau faktor lingkungan yang memengaruhi periode tersebut. Stasiun yang memiliki tingkat polusi tinggi, seperti Gucheng dan Wanshouxigong, mungkin memerlukan perhatian lebih, misalnya dengan meningkatkan kontrol terhadap emisi atau melakukan pemantauan kualitas udara yang lebih intensif.
+            >Sementara itu, visualisasi "Distribusi Polusi di Setiap Stasiun" memberikan gambaran distribusi polusi berdasarkan hari dalam sebulan untuk setiap stasiun. Dari heatmap ini, terlihat bahwa ada `pola ketidakstabilan polusi` yang terjadi di berbagai stasiun, dengan beberapa hari menunjukkan tingkat `polusi` yang `jauh lebih tinggi` dibandingkan hari lainnya. Stasiun seperti `Wanshouxigong, Gucheng, dan Nongzhanguan` menunjukkan `tingkat polusi` yang sering kali `lebih tinggi` dibandingkan stasiun lainnya dalam beberapa hari tertentu. Hal ini bisa mengindikasikan adanya faktor tertentu, seperti kondisi meteorologi atau aktivitas industri yang lebih intens di daerah tersebut.
             """
         )
 
 def ratu2(df_filtered):
-    # data stasiun huairou
-    station_huairou = df_filtered[df_filtered['station'] == 'Huairou'].copy()
-
-    pivot_q2 = station_huairou.pivot_table(
-        index='hour',
-        columns='station',
-        values='polutan_average',
-        aggfunc='mean'
-    )
-
-    best_hours = pivot_q2.idxmin(axis=0)
-
-    fig, ax = plt.subplots(figsize=(10, 8))
-    ax.plot(pivot_q2.index, pivot_q2.values, marker= 'o')
-
-    ax.set_xticks(pivot_q2.index)
-    ax.set_xticklabels(pivot_q2.index, rotation=90)
-
-    ax.set_xlabel('Jam')
-    ax.set_ylabel('Konsentrasi Polutan')
-    ax.set_title('Rata-rata Kualitas Udara Per Jam di Station Huairou')
-
-    st.pyplot(fig)
-
-def ratu3(df_filtered):
-    # data station wanshouxigong
-    station_wanshouxigong = df_filtered[df_filtered['station'] == 'Huairou'].copy()
-
-    # klasifikasi hujan dan tidak hujan pada atribut RAIN
-    rain_clasification = station_wanshouxigong['RAIN'].apply(lambda x: 'Hujan' if x > 0 else 'Tidak Hujan').value_counts()
+    corr_factors = df_filtered.drop(columns=['year', 'month', 'day', 'hour', 'wd', 'station']).corr(method='spearman') # menggunakan metode spearman untuk data berdistribusi tidak normal
     
-    fig, ax = plt.subplots()
-    ax.pie(rain_clasification, labels=rain_clasification.index, autopct='%1.1f%%')
-    plt.title('Distribusi Hujan vs Tidak Hujan Setiap Tahun Di Station Wanshouxigong')
-    st.pyplot(fig)
-
-def ratu4(df_filtered):
-    corr_factors = df_filtered.drop(columns=['year', 'month', 'day', 'hour', 'polutan_average', 'wd', 'station']).corr(method='spearman') # menggunakan metode spearman untuk data berdistribusi tidak normal
-    
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(corr_factors, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5)
-    plt.title('Korelasi antara Faktor Meteorologi dan Polutan')
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(corr_factors, annot=True, cmap="Blues", fmt=".2f", linewidths=0.5)
+    plt.title("Korelasi antara Faktor Meteorologi dan Polutan")
     st.pyplot(plt.gcf())
+
+    pairplot_vars = ['TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM', 'PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
+
+    sns.pairplot(df_filtered[pairplot_vars], diag_kind="kde", plot_kws={'alpha':0.5})
+    plt.suptitle("Pairplot Faktor Meteorologi dan Konsentrasi Polutan", y=1.02)
+    st.pyplot(plt.gcf())
+
+    # Penjelasan
+    with st.expander("Lihat Penjelasan"):
+        st.write("""Insight : """)
+        st.write(
+            """
+            > 1.   Konsentrasi polutan vs Suhu udara (Temp):
+            - PM2.5, PM10, dan CO memiliki hubungan negatif lemah hingga sedang dengan suhu. Ini menunjukkan bahwa ketika suhu meningkat, konsentrasi polutan tersebut cenderung berkurang.
+            - O3 (ozon) memiliki hubungan moderat positif dengan suhu. Ozon meningkat pada suhu yang lebih tinggi.
+            - Dalam pairplot, terlihat sebaran O3 meningkat seiring kenaikan suhu, memperkuat hubungan positif yang ditemukan dalam heatmap.
+            - Sesama komponen meteorologi seperti tekanan udara (Pres) dan titik embun (Dewp) memiliki korelasi tinggi dengan suhu, yang menandakan bahwa suhu berperan besar dalam sistem cuaca secara keseluruhan.
+            > 2.   Konsentrasi Polutan vs Tekanan Udara (Pres):
+            - Tekanan udara memiliki hubungan negatif lemah dengan sebagian besar polutan, menunjukkan bahwa tekanan udara tidak memiliki implikasi langsung yang kuat terhadap polusi udara.
+            - Dari pairplot, terlihat bahwa polutan seperti PM2.5, PM10, dan CO memiliki sebaran yang cukup acak terhadap tekanan udara, yang menunjukkan bahwa tekanan udara tidak menjadi faktor utama dalam konsentrasi polutan.
+            > 3.   Konsentrasi Polutan vs Titik Embun (Dewp):
+            - Titik embun memiliki hubungan lemah dengan polutan, mirip dengan tekanan udara.
+            - Pairplot menunjukkan bahwa polutan memiliki distribusi yang cukup acak terhadap titik embun, sehingga tidak ada pola yang kuat dalam hubungan ini.
+            - Namun, titik embun memiliki hubungan yang sangat kuat dengan suhu dan tekanan udara, yang menegaskan bahwa faktor ini lebih berperan dalam sistem meteorologi daripada secara langsung mempengaruhi polutan.
+            > 4.   Konsentrasi Polutan vs Curah Hujan (Rain):
+            - Curah hujan memiliki hubungan lemah dengan semua faktor meteorologi dan polutan, sebagaimana terlihat dalam heatmap dan pairplot.
+            - Namun, dalam kenyataan, hujan berperan dalam mengurangi polutan dari atmosfer, sehingga bisa membantu menurunkan konsentrasi polutan dalam jangka waktu tertentu.
+            - Dari pairplot, tidak terlihat hubungan jelas antara curah hujan dan polutan, tetapi hujan tetap bisa dianggap sebagai faktor yang membantu membersihkan udara dalam kondisi tertentu.
+            > 5.   Konsentrasi Polutan vs Kecepatan Angin (WSPM):
+            - Hampir semua polutan memiliki hubungan negatif dengan kecepatan angin. Ini menunjukkan bahwa angin membantu menyebarkan polutan dan mengurangi konsentrasinya.
+            - Dari pairplot, terlihat pola sebaran bahwa ketika kecepatan angin tinggi, konsentrasi polutan seperti PM2.5 dan PM10 cenderung lebih rendah.
+            - Angin memainkan peran penting dalam penyebaran polutan, terutama di daerah perkotaan dengan aktivitas industri tinggi.
+            """
+        )
 
 def salsa1(df_filtered):
     # Definisikan jam rush hour (7-9 pagi dan 5-7 sore)
@@ -168,58 +188,6 @@ def salsa1(df_filtered):
             * **PM2.5**: `Konsentrasi rata-rata PM2.5 saat jam tidak sibuk lebih tinggi dibandingkan saat jam sibuk`. Ini menunjukkan bahwa polutan PM2.5 tidak hanya dipengaruhi oleh aktivitas kendaraan pada jam sibuk tetapi mungkin juga berasal dari sumber lain yang beroperasi secara konstan sepanjang hari, seperti industri atau pembangkit listrik yang menghasilkan polusi sepanjang waktu.  
             * **PM10**: `Konsentrasi rata-rata PM10 pada jam sibuk lebih sedikit namun tidak terlalu jauh berbeda dengan jam tidak sibuk`. Hal ini mengindikasikan bahwa faktor-faktor lain di luar jam sibuk, seperti aktivitas konstruksi atau angin, mungkin memiliki kontribusi besar terhadap polusi PM10 di daerah tersebut.  
             * **SO2**: `Konsentrasi rata-rata SO2 sedikit lebih tinggi selama jam tidak sibuk`, tetapi perbedaan ini tidak signifikan. Ini bisa menunjukkan bahwa aktivitas lalu lintas tidak terlalu memengaruhi level SO2, atau sumber SO2 di wilayah ini mungkin berasal dari sumber tetap yang konsisten seperti industri.  
-            """)
-
-
-def salsa2(df_filtered):
-    polutan = ['PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
-    # Pilih kolom-kolom yang relevan
-    data_polutan = df_filtered[polutan]
-
-    # Menghitung korelasi
-    correlation_matrix = data_polutan.corr()
-
-    plt.figure(figsize=(10, 6))
-    sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5)
-    plt.title("Korelasi antara PM2.5 dan Polutan Lainnya")
-    st.pyplot(plt.gcf())
-
-    #Penjelasan
-    with st.expander("Lihat Penjelasan"):
-        st.write("""Insight : """)
-        st.markdown("""
-            >
-            * **PM2.5 dan PM10**: `memiliki korelasi yang sangat kuat` dengan nilai korelasi 0.89  
-            * **PM2.5 dan CO**: `memiliki korelasi positif yang signifikan dengan CO` (0.81)  
-            * **PM2.5 dan NO2**: `memiliki korelasi positif yang cukup kuat dengan PM2.5` (0.70)  
-            * **PM2.5 dan SO2**: `memiliki korelasi yang tidak terlalu kuat dengan PM2.5` (0.50)  
-            * **PM2.5 dan O3 (ozon)**: `memiliki korelasi negatif dengan beberapa polutan` seperti PM2.5 (-0.19), PM10 (-0.14), NO2 (-0.52), dan CO (-0.33).  
-            """)
-
-    
-    polutan_pairs = ['PM10', 'SO2', 'NO2', 'CO', 'O3']
-    plt.figure(figsize=(15, 10))
-
-    for i, polutan in enumerate(polutan_pairs, 1):
-        plt.subplot(2, 3, i)
-        sns.scatterplot(data=data, x='PM2.5', y=polutan, alpha=0.5)
-        plt.title(f"PM2.5 vs {polutan}")
-        plt.xlabel("PM2.5")
-        plt.ylabel(polutan)
-
-    plt.tight_layout()
-    st.pyplot(plt.gcf())
-
-    #Penjelasan
-    with st.expander("Lihat Penjelasan"):
-        st.write("""Insight : """)
-        st.markdown("""
-            >
-            * **PM2.5 dengan PM10**: menunjukkan bahwa `saat konsentrasi PM2.5 naik, konsentrasi PM10 cenderung ikut naik`, menandakan adanya hubungan yang erat antara kedua partikel ini.  
-            * **PM2.5 dengan CO**: `peningkatan konsentrasi PM2.5 biasanya diikuti oleh peningkatan konsentrasi CO`, yang mungkin berasal dari sumber polusi yang mirip, seperti emisi kendaraan atau pembakaran.  
-            * **PM2.5 dengan NO2**: NO2 mungkin memiliki sumber atau `pola distribusi yang mirip dengan PM2.5 dan PM10` di lingkungan tersebut.  
-            * **PM2.5 dengan SO2**: menunjukkan adanya hubungan tetapi `tidak sekuat hubungan dengan CO atau NO2`.  
-            * **PM2.5 dengan O3**: `Korelasi negatif yang signifikan dengan NO2 dan CO dapat disebabkan oleh proses kimia di atmosfer` yang mengurangi O3 ketika ada lebih banyak NO2 dan CO, atau karena adanya faktor lingkungan yang berbeda yang mempengaruhi kadar ozon.  
             """)
 
 def rafly1(df_filtered):
@@ -280,7 +248,10 @@ def rafly2(df_filtered):
 
     # Membuat bar chart perbandingan rata-rata O₃ antara pagi dan sore
     plt.figure(figsize=(8, 5))
-    sns.barplot(x=['Pagi (06:00 - 10:00)', 'Sore (15:00 - 19:00)'], y=[avg_o3_pagi, avg_o3_sore], palette='Set2')
+    sns.barplot(x=['Pagi (06:00 - 10:00)', 'Sore (15:00 - 19:00)'], 
+            y=[avg_o3_pagi, avg_o3_sore], 
+            palette='Set2', 
+            hue=['Pagi', 'Sore'])
 
     plt.title('Perbandingan Rata-rata Konsentrasi O₃ Pagi dan Sore di Stasiun Tiantan (2016)', fontsize=14)
     plt.xlabel('Periode Waktu', fontsize=12)
@@ -373,78 +344,9 @@ def raditya1(df_filtered):
     plt.legend()
     st.pyplot(plt.gcf())
 
-def raditya2(df_filtered):
-    station_huairou = df_filtered[df_filtered['station'] == 'Huairou'].copy()
-
-    station_huairou['date'] = pd.to_datetime(
-        station_huairou['year'].astype(str) + '-' +
-        station_huairou['month'].astype(str).str.zfill(2) + '-' +
-        station_huairou['day'].astype(str).str.zfill(2) + ' ' +
-        station_huairou['hour'].astype(str).str.zfill(2) + ':00'
-    )
-    station_huairou.set_index('date', inplace=True)
-
-    another_factor = ['PM2.5', 'PM10', 'TEMP', 'PRES', 'RAIN', 'WSPM']
-    correlation_matrix = station_huairou[another_factor].corr()
-
-    #Visualisasi PM2.5 terhadap faktor suhu, kecepatan angin, tekanan udara dan curah hujan
-    plt.figure(figsize=(16, 12))
-
-    # PM2.5 vs Suhu
-    plt.subplot(3, 2, 1)
-    plt.scatter(station_huairou['TEMP'], station_huairou['PM2.5'], alpha=0.6, color='blue', edgecolors='w', s=100)
-    plt.title('PM2.5 vs Suhu', fontsize=14)
-    plt.xlabel('Suhu (°C)', fontsize=12)
-    plt.ylabel('PM2.5 (µg/m³)', fontsize=12)
-    plt.grid(True)
-
-    # PM2.5 vs Kecepatan Angin
-    plt.subplot(3, 2, 2)
-    plt.scatter(station_huairou['WSPM'], station_huairou['PM2.5'], alpha=0.6, color='orange', edgecolors='w', s=100)
-    plt.title('PM2.5 vs Kecepatan Angin', fontsize=14)
-    plt.xlabel('Kecepatan Angin (m/s)', fontsize=12)
-    plt.ylabel('PM2.5 (µg/m³)', fontsize=12)
-    plt.grid(True)
-
-    # PM2.5 vs Tekanan Udara
-    plt.subplot(3, 2, 3)
-    plt.scatter(station_huairou['PRES'], station_huairou['PM2.5'], alpha=0.6, color='purple', edgecolors='w', s=100)
-    plt.title('PM2.5 vs Tekanan Udara', fontsize=14)
-    plt.xlabel('Tekanan Udara (hPa)', fontsize=12)
-    plt.ylabel('PM2.5 (µg/m³)', fontsize=12)
-    plt.grid(True)
-
-    # PM2.5 vs Curah Hujan
-    plt.subplot(3, 2, 4)
-    plt.scatter(station_huairou['RAIN'], station_huairou['PM2.5'], alpha=0.6, color='cyan', edgecolors='w', s=100)
-    plt.title('PM2.5 vs Curah Hujan', fontsize=14)
-    plt.xlabel('Curah Hujan (mm)', fontsize=12)
-    plt.ylabel('PM2.5 (µg/m³)', fontsize=12)
-    plt.grid(True)
-
-    plt.tight_layout()
-    st.pyplot(plt.gcf())
-
-    #Penjelasan
-    with st.expander("Lihat Penjelasan"):
-        st.write("""Insight : """)
-        st.markdown("""
-            >
-            Diagram di atas menunjukan bahwa PM2.5 ada korelasinya dengan faktor suhu, kecepatan angin, tekanan udara dan curah hujan.  
-            - **PM2.5 VS Suhu**<br>
-            Diagram ini menunjukan bahwa suhu tidak terlalu berpengaruh namun apabila suhu tersebut mencapai minus bisa dibilang PM2.5 berkurang seiring turunnya suhu.  
-            - **PM2.5 VS Kecepatan Angin**<br>
-            Diagram ini menunjukan bahwa korelasi kecepatan angin dengan PM2.5 sangat berpengaruh. Apabila kita lihat pada diagram, semakin cepat kecepatan anginnya semakin berkurangnya polutan PM2.5.  
-            - **PM2.5 VS Tekanan udara**<br>
-            Diagram ini menunjukan bahwa tekanan udara tidak terlalu berpengaruh terhadap polutan PM2.5 yang berkumpul di daerah 980 sampai 1040 hektopascal (hPa).  
-            - **PM2.5 VS Curah Hujan**<br>
-            Diagram ini menunjukan bahwa korelasi PM2.5 dengan curah hujan itu sangat berpengaruh. Namun pada diagram tersebut hanya menunjukan skala hujan ringan sampai hujan sedang saja. Semakin tinggi curah hujannya semakin rendah juga polutan PM2.5.  
-            """)
-
-
 with st.sidebar :
-    selected = option_menu('Menu',['Dashboard', 'Hasil Analisis', 'Profile'],
-    icons =["easel2", "graph-up", "person"],
+    selected = option_menu('Menu',['Dashboard', 'Hasil Analisis', 'Prediksi Kualitas Udara', 'Profile'],
+    icons =["easel2", "graph-up", "cloud", "person"],
     menu_icon="check-circle",
     default_index=0)
     
@@ -452,7 +354,7 @@ if (selected == 'Dashboard') :
     df_cleaned = cleaning_data(df)
     df_cleaned = df_cleaned[['year', 'wd', 'station']]
 
-    st.header(f"Dataset Air Quality")
+    st.header(f"Dataset Kualitas Udara")
     # Pastikan ada kolom 'station'
     if "station" in df_cleaned.columns:
         # **Tampilkan dropdown untuk memilih station**
@@ -500,7 +402,7 @@ if (selected == 'Dashboard') :
         st.error("Kolom 'station' tidak ditemukan dalam dataset.")
 
 elif (selected == 'Hasil Analisis') :
-    st.header(f"Hasil Analisis Air Quality")
+    st.header(f"Hasil Analisis Kualitas Udara")
     tab1,tab2,tab3,tab4,tab5 = st.tabs(["RATUAYU NURFAJAR", "SALSABILA", "RAFLY RAYHANSYAH", "ARMY HANIF HABIBIE", "RADITYA RESKYANANTA SAPUTRA"])
 
     with tab1 :
@@ -509,42 +411,29 @@ elif (selected == 'Hasil Analisis') :
         st.markdown("""
                     ### Informasi yang ingin disampaikan
                     1. **Stasiun mana saja yang menunjukkan peningkatan kualitas udara atau menghadapi masalah polusi?**
-                    2. **Pada jam berapa kualitas udara paling baik dibanding jam-jam lain di Station Huairou sehingga cocok untuk beraktivitas di luar?**
-                    3. **Bagaimana distribusi kondisi cuaca hujan dan tidak hujan di Station Wanshouxigong?**
-                    4. **4. Bagaimana hubungan antara faktor meteorologi dengan konsentrasi polutan?**
+                    2. **Bagaimana hubungan antara faktor meteorologi dengan konsentrasi polutan?**
                     """)
         st.write('')
-        soal1,soal2,soal3,soal4 = st.tabs(["Soal 1", "Soal 2", "Soal 3", "Soal 4"])
+        soal1,soal2 = st.tabs(["Soal 1", "Soal 2"])
         with soal1 :
             st.subheader("Soal 1")
             ratu1(df_filtered)
         with soal2 :
             st.subheader("Soal 2")
             ratu2(df_filtered)
-        with soal3 :
-            st.subheader("Soal 3")
-            ratu3(df_filtered)
-        with soal4 :
-            st.subheader("Soal 4")
-            ratu4(df_filtered)
+        
     with tab2 :
         st.markdown("**Nama : SALSABILA**")
         st.markdown("**Nim : 10123214**")
         st.markdown("""
                     ### Informasi yang ingin disampaikan
-                    1. **Apakah ada perbedaan kualitas udara pada rush hour (jam sibuk) dibanding dengan off-peak hour (jam tidak sibuk) di China?**
-                    2. **Apakah ada hubungan yang kuat antara PM2.5 dan polutan lain?**
+                    1. **Apakah ada perbedaan kualitas udara pada rush hour (jam sibuk) dibanding dengan off-peak hour (jam tidak sibuk) di sekitar Beijing, China?**
                     """)
         st.write('')
 
-        soal1,soal2 = st.tabs(["Soal 1", "Soal 2"])
+        st.subheader("Soal 1")
+        salsa1(df_filtered)
 
-        with soal1 :
-            st.subheader("Soal 1")
-            salsa1(df_filtered)
-        with soal2 :
-            st.subheader("Soal 2")
-            salsa2(df_filtered)
     with tab3 :
         st.markdown("**Nama : RAFLY RAYHANSYAH**")
         st.markdown("**Nim : 10123218**")
@@ -582,18 +471,14 @@ elif (selected == 'Hasil Analisis') :
         st.markdown("""
                     ### Informasi yang ingin disampaikan
                     1. **Apa faktor-faktor yang paling berkontribusi terhadap peningkatan polusi pada station changping?**
-                    2. **Bagaimana faktor suhu, kecepatan angin, tekanan udara dan curah hujan berpengaruh terhadap lonjakan kadar PM2.5 dan PM10 pada station huairou?**
                     """)
         st.write('')
 
-        soal1,soal2 = st.tabs(["Soal 1", "Soal 2"])
+        st.subheader("Soal 1")
+        raditya1(df_filtered)
 
-        with soal1 :
-            st.subheader("Soal 1")
-            raditya1(df_filtered)
-        with soal2 :
-            st.subheader("Soal 2")
-            raditya2(df_filtered)
+elif (selected == 'Prediksi Kualitas Udara') :
+    pass
 
 elif (selected == 'Profile') :
     # Data anggota (NIM, Nama, Foto)
