@@ -6,6 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from streamlit_option_menu import option_menu
 import seaborn as sns
+import folium
+from streamlit_folium import st_folium
 
 @st.cache_data
 #Load Data CSV
@@ -23,8 +25,6 @@ for file_name in os.listdir(path=folder_path):
         df_list.append(data)
 
 df = pd.concat(df_list, ignore_index=True)
-
-
 
 def cleaning_data(df) :
 
@@ -47,6 +47,127 @@ def cleaning_data(df) :
 df_filtered = cleaning_data(df)[~cleaning_data(df)['year'].isin([2013, 2017])]
 df_filtered = df_filtered.reset_index(drop=True)
 
+@st.cache_data
+def labeling_udara(df_cleaned) :
+    df_tes = df_cleaned.copy()
+    df_tes['datetime'] = pd.to_datetime(df_tes[['year', 'month', 'day', 'hour']])
+    df_tes['label'] = df_tes['PM2.5'].apply(label_pm25)
+
+    # Koordinat stasiun yang sudah ada
+    stations = [
+        {"name": "Aotizhongxin", "lat": 39.9996, "lon": 116.4187},
+        {"name": "Changping", "lat": 40.2203, "lon": 116.2319},
+        {"name": "Dingling", "lat": 39.9391, "lon": 116.2883},
+        {"name": "Dongsi", "lat": 39.9335, "lon": 116.4206},
+        {"name": "Guanyuan", "lat": 39.9515, "lon": 116.3198},
+        {"name": "Gucheng", "lat": 39.9167, "lon": 116.2627},
+        {"name": "Huairou", "lat": 40.3125, "lon": 116.6347},
+        {"name": "Nongzhanguan", "lat": 39.9934, "lon": 116.3493},
+        {"name": "Shunyi", "lat": 40.1305, "lon": 116.6530},
+        {"name": "Tiantan", "lat": 39.8825, "lon": 116.4179},
+        {"name": "Wanliu", "lat": 39.9575, "lon": 116.3190},
+        {"name": "Wanshouxigong", "lat": 39.8887, "lon": 116.3066}
+    ]
+
+    # Buat dictionary untuk mencari lat dan lon berdasarkan station
+    station_coordinates = {station["name"]: {"lat": station["lat"], "lon": station["lon"]} for station in stations}
+
+    # Tambahkan kolom lat dan lon berdasarkan station
+    df_tes["lat"] = df["station"].map(lambda x: station_coordinates.get(x, {}).get("lat"))
+    df_tes["lon"] = df["station"].map(lambda x: station_coordinates.get(x, {}).get("lon"))
+
+    return df_tes
+
+@st.cache_data
+# membuat function untuk labeling
+def label_pm25(value):
+    if 0 < value <= 35:
+        return 'good'
+    elif 35 < value <= 75:
+        return 'moderate'
+    elif 75 < value <= 115:
+        return 'unhealthy for sensitive groups'
+    elif 115 < value <= 150:
+        return 'unhealthy'
+    elif 150 < value <= 250:
+        return 'very unhealthy'
+    elif value > 250:
+        return 'hazardous'
+    else:
+        return 'unknown'
+
+@st.cache_data
+# Fungsi untuk membuat peta
+def create_map(filtered_df):
+    # Warna kualitas udara berdasarkan label
+    color_map = {
+        'good': 'green',
+        'moderate': 'yellow',
+        'unhealthy': 'red',
+        'unhealthy for sensitive groups': 'orange',
+        'very unhealthy': 'purple',
+        'hazardous': 'darkred'
+    }
+
+    # Buat peta dengan pusat di lokasi yang lebih umum (misalnya pusat China)
+    map_china = folium.Map(location=[40.09, 116.6], zoom_start=10)
+    
+    # Tambahkan marker untuk setiap stasiun yang terpilih
+    for _, row in filtered_df.iterrows():
+        folium.CircleMarker(
+            location=[row["lat"], row["lon"]],  # pastikan kolom lat dan lon ada
+            radius=10,
+            color=color_map.get(row["label"], 'blue'),
+            fill=True,
+            fill_color=color_map.get(row["label"], 'blue'),
+            fill_opacity=0.7,
+            popup=f"{row['station']} (PM2.5: {row['PM2.5']}, Label: {row['label']})",
+        ).add_to(map_china)
+    
+    return map_china
+
+
+
+# def create_map() :
+#     # Warna kualitas udara untuk setiap stasiun
+#     color_changping = "yellow"
+#     color_dingling = "yellow"
+
+#     # Koordinat stasiun
+#     stations = [
+#         {"name": "Aotizhingxin", "lat": 39.9996, "lon": 116.4187, "color": color_dingling},
+#         {"name": "Changping", "lat": 40.2203, "lon": 116.2319, "color": color_changping},
+#         {"name": "Dingling", "lat": 39.9391, "lon": 116.2883, "color": color_dingling},
+#         {"name": "Dongsi", "lat": 39.9335, "lon": 116.4206, "color": color_dingling},
+#         {"name": "Guanyuan", "lat": 39.9515, "lon": 116.3198, "color": color_dingling},
+#         {"name": "Gucheng", "lat": 39.9167, "lon": 116.2627, "color": color_dingling},
+#         {"name": "Huairou", "lat": 40.3125, "lon": 116.6347, "color": color_dingling},
+#         {"name": "Nongzhanguan", "lat": 39.9934, "lon": 116.3493, "color": color_dingling},
+#         {"name": "Shunyi", "lat": 40.1305, "lon": 116.6530, "color": color_dingling},
+#         {"name": "Tiantan", "lat": 39.8825, "lon": 116.4179, "color": color_dingling},
+#         {"name": "Wanliu", "lat": 39.9575, "lon": 116.3190, "color": color_dingling},
+#         {"name": "Wanshouxigong", "lat": 39.8887, "lon": 116.3066, "color": color_dingling}
+#     ]
+
+#     # Buat peta dengan pusat di China
+#     map_china = folium.Map(location=[40.1, 116.5], zoom_start=10)
+
+#     # Tambahkan marker untuk setiap stasiun
+#     for station in stations:
+#         folium.CircleMarker(
+#             location=[station["lat"], station["lon"]],
+#             radius=20,
+#             color=station["color"],
+#             fill=True,
+#             fill_color=station["color"],
+#             fill_opacity=0.7,
+#             popup=f"{station['name']} (PM2.5: {station['color'].capitalize()})",
+#         ).add_to(map_china)
+
+#     # Tampilkan peta
+#     return map_china
+
+@st.cache_data
 def ratu1(df_filtered):
     # komponen polutan
     polutan = ['PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
@@ -112,6 +233,7 @@ def ratu1(df_filtered):
             """
         )
 
+@st.cache_data
 def ratu2(df_filtered):
     corr_factors = df_filtered.drop(columns=['year', 'month', 'day', 'hour', 'wd', 'station']).corr(method='spearman') # menggunakan metode spearman untuk data berdistribusi tidak normal
     
@@ -120,11 +242,11 @@ def ratu2(df_filtered):
     plt.title("Korelasi antara Faktor Meteorologi dan Polutan")
     st.pyplot(plt.gcf())
 
-    pairplot_vars = ['TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM', 'PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
+    # pairplot_vars = ['TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM', 'PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
 
-    sns.pairplot(df_filtered[pairplot_vars], diag_kind="kde", plot_kws={'alpha':0.5})
-    plt.suptitle("Pairplot Faktor Meteorologi dan Konsentrasi Polutan", y=1.02)
-    st.pyplot(plt.gcf())
+    # sns.pairplot(df_filtered[pairplot_vars], diag_kind="kde", plot_kws={'alpha':0.5})
+    # plt.suptitle("Pairplot Faktor Meteorologi dan Konsentrasi Polutan", y=1.02)
+    # st.pyplot(plt.gcf())
 
     # Penjelasan
     with st.expander("Lihat Penjelasan"):
@@ -154,6 +276,7 @@ def ratu2(df_filtered):
             """
         )
 
+@st.cache_data
 def salsa1(df_filtered):
     # Definisikan jam rush hour (7-9 pagi dan 5-7 sore)
     rush_hours = df_filtered[(df_filtered['hour'] >= 7) & (df_filtered['hour'] <= 9) | (df_filtered['hour'] >= 17) & (df_filtered['hour'] <= 19)]
@@ -190,6 +313,7 @@ def salsa1(df_filtered):
             * **SO2**: `Konsentrasi rata-rata SO2 sedikit lebih tinggi selama jam tidak sibuk`, tetapi perbedaan ini tidak signifikan. Ini bisa menunjukkan bahwa aktivitas lalu lintas tidak terlalu memengaruhi level SO2, atau sumber SO2 di wilayah ini mungkin berasal dari sumber tetap yang konsisten seperti industri.  
             """)
 
+@st.cache_data
 def rafly1(df_filtered):
     # Filter data untuk station Tiantan dan tahun 2014-2016
     tiantan_data = df_filtered[(df_filtered['station'] == 'Tiantan')].copy()
@@ -230,6 +354,7 @@ def rafly1(df_filtered):
             Konsentrasi PM10 cenderung lebih tinggi pada musim dingin (November hingga Januari) daripada musim panas (Juni hingga Agustus) berdasarkan analisis distribusi rata-rata bulanan PM10 di Stasiun Tiantan dari 2014 hingga 2016. Jumlah tertinggi konsentrasi PM10 biasanya terjadi pada bulan Januari, disebabkan oleh peningkatan penggunaan bahan bakar fosil, kondisi atmosfer yang stabil, dan fenomena inversi suhu. Di sisi lain, selama bulan musim panas, hujan dan peningkatan kecepatan angin menurunkan konsentrasi PM10 secara signifikan. Pola ini menekankan bahwa pengendalian polusi selama musim dingin sangat penting untuk meningkatkan kualitas udara.
         """)
 
+@st.cache_data
 def rafly2(df_filtered):
     # data untuk Stasiun Tiantan dan tahun 2016
     tiantan_2016 = df_filtered[(df_filtered['station'] == 'Tiantan') & (df_filtered['year'] == 2016)]
@@ -272,6 +397,7 @@ def rafly2(df_filtered):
             Berdasarkan analisis data ozon di Stasiun Tiantan sepanjang tahun 2016, ada perbedaan yang signifikan dalam konsentrasi rata-rata ozon antara pagi dan sore hari. Pada waktu pagi, antara pukul 06:00 dan 10:00, konsentrasi ozon lebih rendah, mungkin karena proses fotokimia belum mencapai puncaknya karena intensitas sinar matahari yang masih rendah. Pada waktu sore, konsentrasi ozon meningkat secara signifikan dari pukul 15:00 hingga 19:00. Menurut tren ini, ozon adalah polutan sekunder yang sangat bergantung pada radiasi matahari dan suhu lingkungan.
         """)
 
+@st.cache_data
 def army1(df_filtered):
     selected_columns = ['year', 'station', 'PM2.5', 'PM10']
 
@@ -315,7 +441,7 @@ def army1(df_filtered):
             Grafik tersebut menunjukkan tren peningkatan dan penurunan tingkat partikulat (PM) 2.5 dan 10 di tiga stasiun berbeda (Dingling, Guanyuan, dan Huairou) selama periode 2014 hingga 2016. Stasiun Guanyuan secara konsisten memiliki tingkat PM tertinggi, diikuti oleh Dingling dan Huairou. Fluktuasi tingkat PM dari tahun ke tahun mengindikasikan bahwa kualitas udara di wilayah tersebut dipengaruhi oleh berbagai faktor, seperti musim, aktivitas manusia, dan kondisi cuaca. Secara keseluruhan, grafik ini menyoroti pentingnya pemantauan kualitas udara secara berkelanjutan untuk mengambil langkah-langkah mitigasi yang tepat dalam mengurangi dampak buruk polusi udara bagi kesehatan manusia dan lingkungan.
             """)
 
-
+@st.cache_data
 def raditya1(df_filtered):
     polutan = ['PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
 
@@ -331,18 +457,45 @@ def raditya1(df_filtered):
 
     changping_data.set_index('date', inplace=True)
 
-    plt.figure(figsize=(14, 7))
-    plt.plot(changping_data['PM2.5'], label='PM2.5', alpha=0.7)
-    plt.plot(changping_data['PM10'], label='PM10', alpha=0.7)
-    plt.plot(changping_data['SO2'], label='SO2', alpha=0.7)
-    plt.plot(changping_data['NO2'], label='NO2', alpha=0.7)
-    plt.plot(changping_data['CO'], label='CO', alpha=0.7)
-    plt.plot(changping_data['O3'], label='O3', alpha=0.7)
-    plt.title('Tren Polutan di Stasiun Changping')
-    plt.xlabel('Tanggal')
-    plt.ylabel('Konsentrasi Polutan')
-    plt.legend()
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 7))
+
+    ax1.plot(changping_data['PM10'], label='PM10', alpha=0.7)
+    ax1.plot(changping_data['SO2'], label='SO2', alpha=0.7)
+    ax1.plot(changping_data['NO2'], label='NO2', alpha=0.7)
+    ax1.plot(changping_data['CO'], label='CO', alpha=0.7)
+    ax1.plot(changping_data['O3'], label='O3', alpha=0.7)
+    ax1.plot(changping_data['PM2.5'], label='PM2.5', alpha=0.7)
+    ax1.set_title('Tren Polutan di Stasiun Changping (Dengan CO)')
+    ax1.set_xlabel('Tanggal')
+    ax1.set_ylabel('Konsentrasi Polutan')
+    ax1.legend()
+
+
+    ax2.plot(changping_data['PM10'], label='PM10', alpha=0.7)
+    ax2.plot(changping_data['SO2'], label='SO2', alpha=0.7)
+    ax2.plot(changping_data['NO2'], label='NO2', alpha=0.7)
+    ax2.plot(changping_data['O3'], label='O3', alpha=0.7)
+    ax2.plot(changping_data['PM2.5'], label='PM2.5', alpha=0.7)
+    ax2.set_title('Tren Polutan di Stasiun Changping (Tanpa CO)')
+    ax2.set_xlabel('Tanggal')
+    ax2.set_ylabel('Konsentrasi Polutan')
+    ax2.legend()
+
+    plt.tight_layout()
     st.pyplot(plt.gcf())
+
+    # Penjelasan
+    with st.expander("Lihat Penjelasan"):
+        st.write("""Insight : """)
+        st.write(
+            """
+            >Grafik tersebut menunjukkan tren polutan PM2.5, PM10, SO2, NO2, CO, dan O3 dari Januari 2014 hingga Januari 2017.
+            Pada grafik, CO memiliki konsentrasi polutan yang sangat tinggi, mencapai 10.000 µg/m³.
+            Namun, adanya outlier pada data CO dapat mengganggu interpretasi tren secara keseluruhan.
+            Jika CO dihapus dari analisis, terlihat bahwa PM2.5 dan PM10 menjadi polutan dominan.
+            Kedua polutan ini memiliki dampak signifikan terhadap kesehatan dan kualitas udara, serta sering dijadikan indikator utama polusi udara di daerah perkotaan.
+            """
+        )
 
 with st.sidebar :
     selected = option_menu('Menu',['Dashboard', 'Hasil Analisis', 'Prediksi Kualitas Udara', 'Profile'],
@@ -351,6 +504,65 @@ with st.sidebar :
     default_index=0)
     
 if (selected == 'Dashboard') :
+    df_cleaned = cleaning_data(df)
+    df_label = labeling_udara(df_cleaned)
+
+    st.header(f"Kualitas Udara Pada Station di China")
+
+    # Membuat dua kolom: satu untuk peta, satu untuk filter
+    col1, col2 = st.columns([2, 0.7])
+
+    with col2:
+
+        # Dropdown untuk memilih Station
+        stations = ['Pilih Semua'] + df_label["station"].unique().tolist()
+        selected_station = st.selectbox("Pilih Station:", stations)
+
+        # Dropdown untuk memilih Tahun
+        years = df_label["year"].unique()
+        selected_year = st.selectbox("Pilih Tahun:", years)
+
+        # Dropdown untuk memilih Bulan
+        months = df_label[df_label["year"] == selected_year]["month"].unique()
+        selected_month = st.selectbox("Pilih Bulan:", months)
+
+        # Dropdown untuk memilih Hari
+        days = df_label[(df_label["year"] == selected_year) & (df_label["month"] == selected_month)]["day"].unique()
+        selected_day = st.selectbox("Pilih Hari:", days)
+
+        # Dropdown untuk memilih Jam
+        hours = df_label[(df_label["year"] == selected_year) & 
+                        (df_label["month"] == selected_month) & 
+                        (df_label["day"] == selected_day)]["hour"].unique()
+        selected_hour = st.selectbox("Pilih Jam:", hours)
+
+    with col1:
+        # Filter data berdasarkan pilihan
+        if selected_station == 'Pilih Semua':
+            filtered_df = df_label[
+                (df_label["year"] == selected_year) &
+                (df_label["month"] == selected_month) &
+                (df_label["day"] == selected_day) &
+                (df_label["hour"] == selected_hour)
+            ]
+        else:
+            filtered_df = df_label[
+                (df_label["station"] == selected_station) &
+                (df_label["year"] == selected_year) &
+                (df_label["month"] == selected_month) &
+                (df_label["day"] == selected_day) &
+                (df_label["hour"] == selected_hour)
+            ]
+
+        # Buat peta jika ada data yang terpilih
+        if len(filtered_df) > 0:
+            map_china = create_map(filtered_df)
+            # Tampilkan peta di Streamlit
+            st_folium(map_china, width=725, height=500)
+        else:
+            st.write("Data tidak ditemukan untuk kombinasi yang dipilih.")
+
+elif (selected == 'Dashboard666') :
     df_cleaned = cleaning_data(df)
     df_cleaned = df_cleaned[['year', 'wd', 'station']]
 
