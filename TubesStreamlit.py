@@ -635,7 +635,7 @@ elif (selected == 'Prediksi Kualitas Udara') :
         df_predicted = pd.DataFrame(predicted_pollution, columns=selected_features)
 
         # Tambahkan kolom "Status PM2.5"
-        df_predicted["Status PM2.5"] = df_predicted["PM2.5"].apply(label_pm25)
+        df_predicted["Status"] = df_predicted["PM2.5"].apply(label_pm25)
 
         # Tampilkan hasil prediksi
         st.write("Hasil Prediksi Kadar Polutan (1 Jam ke Depan):")
