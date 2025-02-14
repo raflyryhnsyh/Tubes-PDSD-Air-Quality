@@ -44,8 +44,7 @@ def cleaning_data(df) :
     # print(df_clean.isna().sum())
     return df_clean
 
-# print(cleaning_data(df))
-
+# cleaning dataframe
 df_filtered = cleaning_data(df)[~cleaning_data(df)['year'].isin([2013, 2017])]
 df_filtered = df_filtered.reset_index(drop=True)
 
@@ -452,6 +451,10 @@ def raditya1(df_filtered):
             """
         )
 
+# Labeling dataframe
+df_cleaned = cleaning_data(df)
+df_label = labeling_udara(df_cleaned)
+
 with st.sidebar :
     selected = option_menu('Menu',['Dashboard', 'Hasil Analisis', 'Prediksi Kualitas Udara', 'Profile'],
     icons =["easel2", "graph-up", "cloud", "person"],
@@ -459,8 +462,6 @@ with st.sidebar :
     default_index=0)
     
 if (selected == 'Dashboard') :
-    df_cleaned = cleaning_data(df)
-    df_label = labeling_udara(df_cleaned)
     st.header(f"Kualitas Udara Pada Station di China")
 
     # Membuat dua kolom: satu untuk peta, satu untuk filter
@@ -515,6 +516,15 @@ if (selected == 'Dashboard') :
             st_folium(map_china, width=725, height=500)
         else:
             st.write("Data tidak ditemukan untuk kombinasi yang dipilih.")
+
+    # Menampilkan warna kualitas udara di bawah peta
+    st.write("Warna Kualitas Udara:")
+    st.write("- **Hijau**: Baik")
+    st.write("- **Kuning**: Sedang")
+    st.write("- **Merah**: Tidak Sehat")
+    st.write("- **Orange**: Tidak Sehat Bagi Kelompok Sensitif")
+    st.write("- **Ungu**: Sangat Tidak Sehat")
+    st.write("- **Merah Gelap**: Berbahaya")
 
 elif (selected == 'Hasil Analisis') :
     st.header(f"Hasil Analisis Kualitas Udara")
@@ -630,6 +640,9 @@ elif (selected == 'Prediksi Kualitas Udara') :
         # Tampilkan hasil prediksi
         st.write("Hasil Prediksi Kadar Polutan (1 Jam ke Depan):")
         st.write(df_predicted)
+
+    else:
+        st.warning('Harap unggah file CSV dari Github terlebih dahulu! Pastikan file CSV yang diunggah memiliki format yang benar')
 
 elif (selected == 'Profile') :
     # Data anggota (NIM, Nama, Foto)
