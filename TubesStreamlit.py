@@ -203,11 +203,11 @@ def ratu2(df_filtered):
     plt.title("Korelasi antara Faktor Meteorologi dan Polutan")
     st.pyplot(plt.gcf())
 
-    pairplot_vars = ['TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM', 'PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
+    # pairplot_vars = ['TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM', 'PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
 
-    sns.pairplot(df_filtered[pairplot_vars], diag_kind="kde", plot_kws={'alpha':0.5})
-    plt.suptitle("Pairplot Faktor Meteorologi dan Konsentrasi Polutan", y=1.02)
-    st.pyplot(plt.gcf())
+    # sns.pairplot(df_filtered[pairplot_vars], diag_kind="kde", plot_kws={'alpha':0.5})
+    # plt.suptitle("Pairplot Faktor Meteorologi dan Konsentrasi Polutan", y=1.02)
+    # st.pyplot(plt.gcf())
 
     # Penjelasan
     with st.expander("Lihat Penjelasan"):
@@ -593,9 +593,9 @@ elif (selected == 'Hasil Analisis') :
         raditya1(df_filtered)
 
 elif (selected == 'Prediksi Kualitas Udara') :
+    st.header("Prediksi Kualitas Udara untuk 1 Jam ke Depan")
     # Memuat model
     model = tf.keras.models.load_model('model_prediksi.h5', custom_objects={'mse': 'mean_squared_error'})
-    st.write(model.summary())
 
     # untuk upload file yang bertipe csv
     file = st.file_uploader('Unggah File', type='csv')
