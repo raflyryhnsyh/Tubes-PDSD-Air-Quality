@@ -467,6 +467,15 @@ if (selected == 'Dashboard') :
     # Membuat dua kolom: satu untuk peta, satu untuk filter
     col1, col2 = st.columns([2, 0.7])
 
+    # Menampilkan warna kualitas udara di bawah peta
+    st.subheader("Warna Kualitas Udara:")
+    st.write("- **Hijau**: Baik")
+    st.write("- **Kuning**: Sedang")
+    st.write("- **Merah**: Tidak Sehat")
+    st.write("- **Orange**: Tidak Sehat Bagi Kelompok Sensitif")
+    st.write("- **Ungu**: Sangat Tidak Sehat")
+    st.write("- **Merah Gelap**: Berbahaya")
+
     with col2:
 
         # Dropdown untuk memilih Station
@@ -516,15 +525,6 @@ if (selected == 'Dashboard') :
             st_folium(map_china, width=725, height=500)
         else:
             st.write("Data tidak ditemukan untuk kombinasi yang dipilih.")
-
-    # Menampilkan warna kualitas udara di bawah peta
-    st.write("Warna Kualitas Udara:")
-    st.write("- **Hijau**: Baik")
-    st.write("- **Kuning**: Sedang")
-    st.write("- **Merah**: Tidak Sehat")
-    st.write("- **Orange**: Tidak Sehat Bagi Kelompok Sensitif")
-    st.write("- **Ungu**: Sangat Tidak Sehat")
-    st.write("- **Merah Gelap**: Berbahaya")
 
 elif (selected == 'Hasil Analisis') :
     st.header(f"Hasil Analisis Kualitas Udara")
@@ -660,8 +660,8 @@ elif (selected == 'Profile') :
             st.image(foto, use_container_width=True)
             st.markdown(
                 f"""
-                <p style="text-align: center; font-size: 16px; font-weight: bold; color: white; margin-bottom: 2px;">{nama}</p>
-                <p style="text-align: center; font-size: 14px; color: white; margin-top: 0px;">{nim}</p>
+                <p style="text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 2px;">{nama}</p>
+                <p style="text-align: center; font-size: 14px; margin-top: 0px;">{nim}</p>
                 """, 
                 unsafe_allow_html=True
             )
