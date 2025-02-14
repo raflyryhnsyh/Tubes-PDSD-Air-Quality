@@ -8,6 +8,8 @@ from streamlit_option_menu import option_menu
 import seaborn as sns
 import folium
 from streamlit_folium import st_folium
+import tensorflow as tf
+from sklearn.preprocessing import MinMaxScaler
 
 @st.cache_data
 #Load Data CSV
@@ -116,7 +118,7 @@ def create_map(filtered_df):
     for _, row in filtered_df.iterrows():
         folium.CircleMarker(
             location=[row["lat"], row["lon"]],  # pastikan kolom lat dan lon ada
-            radius=10,
+            radius=15,
             color=color_map.get(row["label"], 'blue'),
             fill=True,
             fill_color=color_map.get(row["label"], 'blue'),
@@ -201,11 +203,11 @@ def ratu2(df_filtered):
     plt.title("Korelasi antara Faktor Meteorologi dan Polutan")
     st.pyplot(plt.gcf())
 
-    # pairplot_vars = ['TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM', 'PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
+    pairplot_vars = ['TEMP', 'PRES', 'DEWP', 'RAIN', 'WSPM', 'PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']
 
-    # sns.pairplot(df_filtered[pairplot_vars], diag_kind="kde", plot_kws={'alpha':0.5})
-    # plt.suptitle("Pairplot Faktor Meteorologi dan Konsentrasi Polutan", y=1.02)
-    # st.pyplot(plt.gcf())
+    sns.pairplot(df_filtered[pairplot_vars], diag_kind="kde", plot_kws={'alpha':0.5})
+    plt.suptitle("Pairplot Faktor Meteorologi dan Konsentrasi Polutan", y=1.02)
+    st.pyplot(plt.gcf())
 
     # Penjelasan
     with st.expander("Lihat Penjelasan"):
@@ -358,46 +360,40 @@ def rafly2(df_filtered):
 
 @st.cache_data
 def army1(df_filtered):
+
     selected_columns = ['year', 'station', 'PM2.5', 'PM10']
 
     # Memfilter data berdasarkan nama stasiun
     stations_filter = ['Dingling', 'Guanyuan', 'Huairou']
-    filter_data = df_filtered[df_filtered['station'].isin(stations_filter)][selected_columns]
+    # Filter by station and year
+    filter_data = df_filtered[(df_filtered['station'].isin(stations_filter)) & (df_filtered['year'] == 2015)][selected_columns]
 
     # Menghitung rata-rata dari PM2.5 dan PM10
     filter_data['PM_average'] = filter_data[['PM2.5', 'PM10']].mean(axis=1)
 
-    # Membuat plot
-    plt.figure(figsize=(14, 6))
-
-    # Line plot untuk rata-rata PM2.5 dan PM10 per tahun per stasiun
-    sns.lineplot(
-        data=filter_data,
-        x='year',
-        y='PM_average',
-        hue='station',
-        marker='o',
-        palette='tab10'
+    # Membuat bar plot
+    plt.figure(figsize=(12, 6))
+    sns.barplot(
+        data=filter_data.melt(id_vars=['station'], value_vars=['PM2.5', 'PM10'], var_name='Polutan', value_name='Konsentrasi'),
+        x='station', y='Konsentrasi', hue='Polutan', ci=None, palette=['blue', 'green'] 
     )
-
-    # Menambahkan judul dan label
-    plt.title('Tren Rata-rata PM2.5 dan PM10 Per Tahun untuk Stasiun Tertentu', fontsize=16)
-    plt.xlabel('Tahun', fontsize=12)
-    plt.ylabel('Rata-rata PM2.5 dan PM10', fontsize=12)
-    plt.legend(title='Stasiun', fontsize=10)
-    plt.grid(True)
-    plt.xticks(filter_data['year'].unique())  # Menampilkan hanya tahun yang ada di data
-
-    # Menampilkan plot
-    plt.tight_layout()
+    plt.xlabel('Stasiun')
+    plt.ylabel('Konsentrasi (µg/m³)')
+    plt.title('Rata-rata Konsentrasi PM2.5 dan PM10 di 3 Stasiun pada Tahun 2015')
     st.pyplot(plt.gcf())
 
     #Penjelasan
     with st.expander("Lihat Penjelasan"):
         st.write("""Insight : """)
         st.markdown("""
-            >
-            Grafik tersebut menunjukkan tren peningkatan dan penurunan tingkat partikulat (PM) 2.5 dan 10 di tiga stasiun berbeda (Dingling, Guanyuan, dan Huairou) selama periode 2014 hingga 2016. Stasiun Guanyuan secara konsisten memiliki tingkat PM tertinggi, diikuti oleh Dingling dan Huairou. Fluktuasi tingkat PM dari tahun ke tahun mengindikasikan bahwa kualitas udara di wilayah tersebut dipengaruhi oleh berbagai faktor, seperti musim, aktivitas manusia, dan kondisi cuaca. Secara keseluruhan, grafik ini menyoroti pentingnya pemantauan kualitas udara secara berkelanjutan untuk mengambil langkah-langkah mitigasi yang tepat dalam mengurangi dampak buruk polusi udara bagi kesehatan manusia dan lingkungan.
+            >1. Konsentrasi PM2.5 dan PM10 Berbeda di Setiap Stasiun
+            - Stasiun Guanyuan memiliki konsentrasi tertinggi untuk PM10 dibandingkan stasiun lainnya.
+            - Konsentrasi PM2.5 lebih rendah dibandingkan PM10 di semua stasiun.
+            2. Polusi Lebih Tinggi di Stasiun Guanyuan
+            - Stasiun Guanyuan menunjukkan tingkat polutan PM2.5 dan PM10 yang lebih tinggi dibandingkan Dingling dan Huairou.
+            - Hal ini mengindikasikan bahwa Guanyuan mungkin merupakan area yang lebih rentan terhadap polusi udara.
+            3. Konsentrasi Relatif Seimbang di Huairou
+            - Stasiun Huairou menunjukkan konsentrasi PM10 yang cukup tinggi, tetapi masih lebih rendah dibandingkan Guanyuan. Konsentrasi PM2.5 lebih kecil, yang mungkin menunjukkan kondisi udara yang relatif lebih bersih.
             """)
 
 @st.cache_data
@@ -465,7 +461,6 @@ with st.sidebar :
 if (selected == 'Dashboard') :
     df_cleaned = cleaning_data(df)
     df_label = labeling_udara(df_cleaned)
-
     st.header(f"Kualitas Udara Pada Station di China")
 
     # Membuat dua kolom: satu untuk peta, satu untuk filter
@@ -520,57 +515,6 @@ if (selected == 'Dashboard') :
             st_folium(map_china, width=725, height=500)
         else:
             st.write("Data tidak ditemukan untuk kombinasi yang dipilih.")
-
-elif (selected == 'Dashboard666') :
-    df_cleaned = cleaning_data(df)
-    df_cleaned = df_cleaned[['year', 'wd', 'station']]
-
-    st.header(f"Dataset Kualitas Udara")
-    # Pastikan ada kolom 'station'
-    if "station" in df_cleaned.columns:
-        # **Tampilkan dropdown untuk memilih station**
-        selected_station = st.selectbox("Pilih Station:", df_cleaned["station"].unique())
-
-        # **Filter dataset berdasarkan station yang dipilih**
-        filtered_df = df_cleaned[df_cleaned["station"] == selected_station]
-
-        st.write(f"Data untuk Station: {selected_station}")
-        
-        col1, col2 = st.columns([0.5, 1])
-
-        with col1:
-            # **Tampilkan dataset di Streamlit**
-            st.dataframe(filtered_df)
-
-        with col2:
-            st.image("img/arah_angin.png", use_container_width=True)
-
-        st.markdown("""
-            Pada kasus ini, dataset air quality mengukur kualitas udara di lokasi/station di sekitar Beijing, China. Dataset ini memiliki beberapa fitur/atribut, diantaranya:
-
-            1. **no**  
-            2. **year**: tahun air quality data diambil  
-            3. **month**: bulan air quality data diambil  
-            4. **day**: tanggal air quality data diambil  
-            5. **hour**: jam spesifik air quality data diambil  
-            6. **pm2.5**: PM2.5 dapat dimaknai sebagai partikel udara yang berukuran lebih kecil dari atau sama dengan 2.5 µm (mikrometer). Beberapa sumber alami yang masuk dalam kategori PM2.5 adalah debu, jelaga, kotoran, garam tertiup angin, spora tumbuhan, serbuk sari hingga asap dari kebakaran hutan. Selain sumber alami, PM2.5 juga dihasilkan manusia dari ladang, kebakaran, jalan tanah, dan tempat konstruksi.  
-            7. **pm10**: PM10 adalah partikel udara dengan diameter 10 µm (mikrometer) atau kurang, termasuk asap, debu, jelaga, garam, asam, dan logam.  
-            8. **so2**: sulfur dioksida adalah gas tak berwarna dengan bau yang tajam. Gas ini dihasilkan dari pembakaran bahan bakar fosil (batu bara dan minyak) dan peleburan bijih mineral yang mengandung sulfur.  
-            9. **no2**: nitrogen dioksida gas yang umumnya dilepaskan dari pembakaran bahan bakar di sektor transportasi dan industri.  
-            10. **co**: Karbon monoksida adalah gas beracun yang tidak berwarna, tidak berbau, dan tidak berasa yang dihasilkan dari pembakaran bahan bakar karbon yang tidak sempurna seperti kayu, bensin, arang, gas alam, dan minyak tanah.  
-            11. **o3**: ozon adalah salah satu konstituen utama kabut asap fotokimia dan terbentuk melalui reaksi dengan gas-gas dengan adanya sinar matahari.  
-            12. **temp**: suhu udara yang diukur pada waktu dan lokasi tertentu.  
-            13. **pres**: tekanan udara.  
-            14. **dewp**: titik embun.  
-            15. **rain**: curah hujan.  
-            16. **wd**: arah angin.  
-            17. **wspm**: kecepatan angin.  
-            18. **station**: lokasi pemantauan kualitas udara.  
-            """)
-
-
-    else:
-        st.error("Kolom 'station' tidak ditemukan dalam dataset.")
 
 elif (selected == 'Hasil Analisis') :
     st.header(f"Hasil Analisis Kualitas Udara")
@@ -629,7 +573,7 @@ elif (selected == 'Hasil Analisis') :
         st.markdown("**Nim : 10123240**")
         st.markdown("""
                     ### Informasi yang ingin disampaikan
-                    1. **Bagaimana rata-rata konsentrasi PM2.5 dan PM10 di ketiga stasiun(DIngling, Guanyuan, Huairou) sepanjang tahun?**
+                    1. **Bagaimana rata-rata konsentrasi PM2.5 dan PM10 di ketiga stasiun(Dingling, Guanyuan, Huairou) sepanjang tahun 2015?**
                     """)
         st.write('')
 
@@ -649,7 +593,43 @@ elif (selected == 'Hasil Analisis') :
         raditya1(df_filtered)
 
 elif (selected == 'Prediksi Kualitas Udara') :
-    pass
+    # Memuat model
+    model = tf.keras.models.load_model('model_prediksi.h5', custom_objects={'mse': 'mean_squared_error'})
+    st.write(model.summary())
+
+    # untuk upload file yang bertipe csv
+    file = st.file_uploader('Unggah File', type='csv')
+
+    if file is not None:
+        # Baca file CSV
+        df_model = pd.read_csv(file)
+
+        # Pastikan hanya mengambil kolom fitur yang digunakan dalam model
+        selected_features = ['PM2.5', 'PM10', 'SO2', 'NO2', 'CO', 'O3']  # Sesuaikan dengan fitur model Anda
+        df_model = df_model[selected_features]
+
+        # Lakukan normalisasi dengan MinMaxScaler
+        scaler = MinMaxScaler()
+        val_scaled = scaler.fit_transform(df_model)  # Normalisasi data
+
+        # Ambil 24 jam terakhir
+        last_24_hours = val_scaled[-24:].reshape(1, 24, val_scaled.shape[1])  # Sesuai shape model
+
+        # Prediksi kadar polutan 1 jam ke depan
+        predicted_pollution = model.predict(last_24_hours)
+
+        # Inverse transform untuk mendapatkan nilai asli
+        predicted_pollution = scaler.inverse_transform(predicted_pollution)
+
+        # Buat DataFrame hasil prediksi
+        df_predicted = pd.DataFrame(predicted_pollution, columns=selected_features)
+
+        # Tambahkan kolom "Status PM2.5"
+        df_predicted["Status PM2.5"] = df_predicted["PM2.5"].apply(label_pm25)
+
+        # Tampilkan hasil prediksi
+        st.write("Hasil Prediksi Kadar Polutan (1 Jam ke Depan):")
+        st.write(df_predicted)
 
 elif (selected == 'Profile') :
     # Data anggota (NIM, Nama, Foto)
